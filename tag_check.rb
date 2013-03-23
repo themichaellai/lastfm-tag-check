@@ -25,7 +25,7 @@ end
 
 def get_top_tracks(artist)
   artist_param = artist.gsub(/ /, '+')
-  method = "?method=artist.gettoptracks&artist=#{artist_param}&api_key=#{APIKEY}&format=json"
+  method = "?method=artist.gettoptracks&artist=#{artist_param}&api_key=#{APIKEY}&format=json&limit=200"
   data = JSON.parse open(APIROOT + method).read
   data['toptracks']['track'].map do |track|
     {
@@ -39,14 +39,16 @@ if __FILE__ == $0
   artist_tracks = {}
   Dir.glob(Dir.pwd + '/**/*.mp3') do |f|
     Mp3Info.open(f) do |info|
-      puts "- #{info.tag.title}"
+      puts "- #{info.tag.title || File.basename(f)}"
       unless artist_tracks.has_key? info.tag.artist
         puts "Getting tracks for: #{info.tag.artist}"
         artist_tracks[info.tag.artist] = get_top_tracks info.tag.artist
+        puts "Got #{artist_tracks[info.tag.artist].length} tracks"
       end
       top_tracks = artist_tracks[info.tag.artist]
       similar = top_tracks.select do |top_track|
-        levenschtein(info.tag.title, top_track[:name]) < info.tag.title.length / 3
+        track_title = info.tag.title || File.basename(f)
+        levenschtein(track_title, top_track[:name]) < track_title.length / 3
       end
       similar.sort_by!{|s| levenschtein(info.tag.title, s[:name]) }
       if similar.length > 0
