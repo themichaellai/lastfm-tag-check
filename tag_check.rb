@@ -1,6 +1,7 @@
 require 'mp3info'
 require 'open-uri'
 require 'json'
+require 'colorize'
 
 APIKEY = ""
 APIROOT = "http://ws.audioscrobbler.com/2.0/"
@@ -46,19 +47,25 @@ if __FILE__ == $0
         puts "Got #{artist_tracks[info.tag.artist].length} tracks"
       end
       top_tracks = artist_tracks[info.tag.artist]
+      track_title = info.tag.title || File.basename(f)
       similar = top_tracks.select do |top_track|
-        track_title = info.tag.title || File.basename(f)
-        levenschtein(track_title, top_track[:name]) < track_title.length / 3
+        levenschtein(track_title, top_track[:name]) < track_title.length / 3 \
+          or track_title.include? top_track[:name][0...track_title.length]
       end
-      similar.sort_by!{|s| levenschtein(info.tag.title, s[:name]) }
+      similar.sort_by!{|s| levenschtein(track_title, s[:name]) }
       if similar.length > 0
-        unless similar[0][:name].eql? info.tag.title
+        if similar[0][:name].eql? info.tag.title
+          puts "Already matches top!".green
+        else
           puts "Similar: "
-          similar.each { |sim| puts "- #{sim[:name]} (#{levenschtein(info.tag.title, sim[:name])})" }
-          print 'Replace with first? (y/[n]) '
-          if gets.chomp.eql? 'y'
-            puts "Changing to: #{similar[0][:name]}"
-            info.tag.title = similar[0][:name]
+          similar.each_with_index do |sim, i|
+            puts "#{i+1} #{sim[:name]} (#{levenschtein(track_title, sim[:name])}) (#{sim[:listeners]})"
+          end
+          print 'Replace with ? (#/[n]) '.red
+          choice = gets.chomp
+          if choice.eql? 'y' or (1..similar.length).include? choice.to_i
+            puts "Changing to: #{similar[choice.to_i - 1][:name]}".blue
+            info.tag.title = similar[choice.to_i - 1][:name]
           end
         end
       end
